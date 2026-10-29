@@ -4,7 +4,7 @@ import path from 'node:path';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
 
-import { formatDoc, getLocalDocsCommit, loadDocs, searchDocs } from './docs.js';
+import { formatDoc, getLocalDocsCommit, loadDocs, normalizeSlug, searchDocs } from './docs.js';
 
 const packageJson = JSON.parse(
   await readFile(path.join(import.meta.dirname, '..', 'package.json'), 'utf8'),
@@ -84,10 +84,7 @@ export function createServer() {
     },
     async ({ slug }) => {
       const docs = await loadDocs();
-      const normalizedSlug = slug
-        .replace(/^https:\/\/hermes-agent\.nousresearch\.com\/docs\/?/, '')
-        .replace(/^\/docs\/?/, '')
-        .replace(/\/$/, '');
+      const normalizedSlug = normalizeSlug(slug);
       const doc = docs.find((entry) => entry.slug === normalizedSlug);
 
       if (!doc) {

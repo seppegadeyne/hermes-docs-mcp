@@ -7,6 +7,7 @@ import { afterEach, beforeEach, describe, it } from 'node:test';
 import {
   buildIndexFromDirectory,
   formatDoc,
+  normalizeSlug,
   parseMarkdownDoc,
   searchDocs,
 } from '../src/docs.ts';
@@ -239,6 +240,16 @@ describe('searchDocs', () => {
   it('returns empty for a query without known terms', async () => {
     const docs = await buildIndexFromDirectory(fixtureDir);
     assert.deepEqual(searchDocs(docs, 'zzzzqqqq', 5), []);
+  });
+});
+
+describe('normalizeSlug', () => {
+  it('handles bare slugs, docs URLs, root, query and hash', () => {
+    assert.equal(normalizeSlug('user-guide/features/mcp'), 'user-guide/features/mcp');
+    assert.equal(normalizeSlug('https://hermes-agent.nousresearch.com/docs/'), 'index');
+    assert.equal(normalizeSlug('https://hermes-agent.nousresearch.com/docs/user-guide/x/?a=1#h'), 'user-guide/x');
+    assert.equal(normalizeSlug('/docs/reference/cli/'), 'reference/cli');
+    assert.equal(normalizeSlug('/docsify'), 'docsify');
   });
 });
 

@@ -37,6 +37,7 @@ let directoryCache: { docs: HermesDoc[]; loadedAt: number } | undefined;
 let remoteCache: HermesDoc[] | undefined;
 
 const CACHE_TTL_MS = 60_000;
+const FETCH_TIMEOUT_MS = 30_000;
 
 export async function loadDocs(): Promise<HermesDoc[]> {
   const docsDir = process.env.HERMES_DOCS_DIR ?? DEFAULT_LOCAL_DOCS_DIR;
@@ -118,6 +119,7 @@ export async function buildIndexFromGitHub(fetchImpl: typeof fetch = fetch): Pro
       Accept: 'application/vnd.github+json',
       'User-Agent': 'voltti-hermes-docs-mcp',
     },
+    signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
   });
 
   if (!treeResponse.ok) {
@@ -140,6 +142,7 @@ export async function buildIndexFromGitHub(fetchImpl: typeof fetch = fetch): Pro
       const relativePath = docPath.slice('website/docs/'.length);
       const rawResponse = await fetchImpl(`${RAW_DOCS_BASE_URL}/${relativePath}`, {
         headers: { 'User-Agent': 'voltti-hermes-docs-mcp' },
+        signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
       });
 
       if (!rawResponse.ok) {
@@ -184,9 +187,6 @@ function docUrl(slug: string): string {
 
 function slugFromSourcePath(sourcePath: string): string {
   const normalized = sourcePath.split(path.sep).join('/');
-  const frontmatterSlug = normalized === 'index.mdx' ? 'index' : undefined;
-  if (frontmatterSlug) return frontmatterSlug;
-
   const withoutExtension = normalized.replace(/\.mdx?$/, '');
   return withoutExtension.replace(/\/index$/, '');
 }
@@ -225,7 +225,6 @@ function extractHeadings(body: string): string[] {
   const headings: string[] = [];
   const lines = body.split(/\r?\n/);
   let inFence = false;
-  let sawFirstH1 = false;
 
   for (const line of lines) {
     if (/^\s*(```|~~~)/.test(line)) {
@@ -237,13 +236,7 @@ function extractHeadings(body: string): string[] {
     const match = line.match(/^(#{1,4})\s+(.+)$/);
     if (!match) continue;
 
-    if (match[1].length === 1) {
-      if (!sawFirstH1) {
-        sawFirstH1 = true; // first H1 is the page title duplicate
-        continue;
-      }
-      continue;
-    }
+    if (match[1].length === 1) continue; // H1s duplicate the page title
     headings.push(stripMarkdown(match[2]).trim());
   }
 
@@ -351,6 +344,18 @@ function makeSnippet(doc: HermesDoc, terms: string[]): string {
     }
   }
   return doc.description || doc.content.slice(0, 240).replace(/\s+/g, ' ').trim();
+}
+
+/** Maps a bare slug, /docs/ path, or full docs URL (query/hash allowed) to an index slug; the root maps to 'index'. */
+export function normalizeSlug(input: string): string {
+  return (
+    input
+      .trim()
+      .replace(/^https:\/\/hermes-agent\.nousresearch\.com/, '')
+      .replace(/[?#].*$/, '')
+      .replace(/^\/docs(?=\/|$)/, '')
+      .replace(/^\/+|\/+$/g, '') || 'index'
+  );
 }
 
 export function formatDoc(doc: HermesDoc): string {
