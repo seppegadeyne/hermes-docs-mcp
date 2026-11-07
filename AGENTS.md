@@ -19,3 +19,5 @@
 - Read applicable repository guidance before editing.
 - Keep documentation changes separate from behavior changes.
 - Run `npm test` and `npm run build` before finishing; report failures accurately.
+
+- Read CONSTRAINTS.md before writing code. Never weaken it to make a change pass; tightening is fine.
